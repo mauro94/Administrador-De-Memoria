@@ -32,22 +32,41 @@ def pProcess(nBytes, nProcess):
 	blockSize = 0						#tamaño del espacio disponible
 	blockSizeCounter = 0			#cuenta el espacio del bloque libre
 	initialPageFrameBlock = 0	#1 marco de página libre del bloque disponible
+        counter = 0                 #contador de bytes
 	
 	#calcular numero de marcos de pagina requeridos
 	pageFrames = math.ceil(int(nBytes)/(8))
 	
 	#revisar si existen marcos de pagina libres suficientes
-	if nFreePAgeFrames >= pageFrames:
+	if nFreePageFrames >= pageFrames:
 		#buscar marco de pagina libre
 		for i in xrange(2048):
 			#si esta libre sumar a contador
 			if MR[i] == -1:
 				blockSizeCounter += 1
 			else:
-				#revisar si contador es mayor que espacio libre actual
-				if blockSizeCounter > blockSize:
-					initialPageFrameBlock = i - blockSizeCounter - 2
-					blockSize = blockSizeCounter
+                #almacenar paginas disponibles
+                for j in xrange((i - blockSizeCounter), i):
+                    #contar numero de bytes para definir si ya lleno una pagina
+                    counter++
+    
+                    #Actucalizar numero de paginas por almacenar restantes
+                    if counter == 8
+                        #si faltan paginas del proceso por almacenar
+                        if pageFrames > 0:
+                            MR[j] = int(nProcess)
+                            pageFrames--
+                        #si ya se almacenaron todas las paginas
+                        else
+                            break
+                        #reiniciar contador
+                        counter = 0
+ 
+                if pageFrames == 0
+                #if blockSizeCounter >
+                #	initialPageFrameBlock = i - blockSizeCounter - 2
+                #	blockSize = blockSizeCounter
+                
 				#reiniciar contador
 				blockSizeCounter = 0
 		
@@ -56,8 +75,28 @@ def pProcess(nBytes, nProcess):
 			#asignar marcos de pagina
 			for i in xrange(initialPageFrameBlock, (initialPageFrameBlock + blockSize + 1)):
 				MR[i] = int(nProcess)
-			nFreeBytesM -= nBytes
+			nFreePageFrames -= pageFrames
 				
+    #si toda la memoria esta vacia
+    elif nFreePageFrames == 256:
+        #almacenar paginas disponibles
+        for i in xrange(0, 2048):
+            #contar numero de bytes para definir si ya lleno una pagina
+            counter++
+                
+            #Actucalizar numero de paginas por almacenar restantes
+            if counter == 8
+                #si faltan paginas del proceso por almacenar
+                if pageFrames > 0:
+                    MR[i] = int(nProcess)
+                        pageFrames--
+                    #si ya se almacenaron todas las paginas
+                    else
+                        break
+                #reiniciar contador
+                counter = 0
+
+
 	#implementar politica de remplazo FIFO
 	else:
 		
