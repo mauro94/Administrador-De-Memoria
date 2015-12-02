@@ -343,7 +343,7 @@ def FIFO(pages, nProcess, fromRMtoSw):
 	
 	
 #Función: swappingRMtoSw
-#Función que hace el swapping
+#Función que hace el swapping de memoria real a memoria swap
 #Parámetros:
 #	-pages: numero de páginas necesarios
 #	-timestampsPF: lista que almacenara en orden los procesos basado en tiempo
@@ -381,7 +381,7 @@ def swappingRMtoSw(pages, timestampsPF, nProcess):
 			list.append(pFrame)
 			Sw[int(pFrame.nProcess)] = list
 		
-		#si el proceso ya existe en el diccionario
+		#si el proceso ya existe en memoria swap
 		else:
 			#agregar a la memoria
 			Sw[int(pFrame.nProcess)].append(pFrame)
@@ -410,6 +410,8 @@ def swappingRMtoSw(pages, timestampsPF, nProcess):
 
 
 #------------------------------------------------------------------------------------------------
+	
+	
 	
 #Función: aProcess
 #Función que accesa informacion en meoria real
@@ -466,9 +468,12 @@ def aProcess(virtualDir, nProcess, readModify):
 	else:
 		for i in range(len(Sw[int(nProcess)])):
 			#copiar lista a una temporal
-			listTemp = copy.deepcopy(Sw[int(nProcess)])	
+			listTemp = copy.deepcopy(Sw[int(nProcess)])			
+			print("p: " + str(nProcess)+" lista: " + str(listTemp[i].pageOrderNum) + "  page: " + str(page))
+			
 			#si la pagina del proceso es la buscada
 			if listTemp[i].pageOrderNum == page:
+				print("GFGFG")
 				#revisar si existe existe el proceso en el diccionario pagefaults
 				dictionaryCheckPageFaults = pageFaults.get(int(nProcess), -1)
 				
@@ -500,12 +505,30 @@ def aProcess(virtualDir, nProcess, readModify):
 		else:
 			print("Dirección virtual: " + str(virtualDir) + ". Dirección real: " + str(realDir) + " y modificar dicha dirección")
 			print("Página " + str(math.floor(int(virtualDir)/8)) + " del proceso " + str(nProcess) + " modificada") 
-			
+	
+	#si la direccion real no esta en memoria
 	else:
 		print("La direccion virtual " + str(virtualDir) + " no se encuentra en memoria.")
 	
 	return
 	
+#END aProcess
+
+
+
+#------------------------------------------------------------------------------------------------
+	
+#-------------NO FUNCIONA CORRECTAMENTE---------------------
+	
+#Función: swappingSwtoRM
+#Función que hace el swapping de memoria swap a memoria swap
+#Parámetros:
+#	-pageFrames: numero de marcos de pagina
+#	-nProcess: proceso al cual pertenece el marco de página
+#	-page : numero de página del proceso
+#	-swListLocation: ubicación en memoria swap
+#Regresa:
+#	Ubicacion del ultimo swap
 def swappingSwtoRM(pageFrames, nProcess, page, swListLocation):
 	#variables globales
 	global RM
@@ -514,75 +537,98 @@ def swappingSwtoRM(pageFrames, nProcess, page, swListLocation):
 	global swapOutCounter
 	
 	#variables
-	processInRM = None
-	swapLocation = 0
-	pFrame = None					#define el marco de pagina a swapear
-	dictionaryCheck = 0
+	processInRM = None		#siguiente proceso a swapear en memoria real
+	swapLocation = 0			#ubicacion del marco de pagina a swapear a memoria real
+	pFrame = None				#almacena el marco de pagina a swapear
+	dictionaryCheck = 0		#variable auxiliar para apoyo en busqueda de valores en diccionarios
 	
+	#pedir siguiente proceso a remplazar en memoria real utilizando politica FIFO
 	processInRM = FIFO(pageFrames, nProcess, False)
 	
-	#definir ubicacion del siguiente marco de pagina a cambiar
+	#definir ubicacion del siguiente marco de pagina de memoria real a swapear
 	swapLocation = processInRM.pageFrame
 	
-	#definir el marco de pagina a mover
+	#almacenar el marco de pagina de memoria real a mover a memoria swap
 	pFrame = RM[swapLocation]
 	
-	#definir al marco de pagina que ser almacenado
+	#definir ubicacion en memoria swap a donde se mandara este marco de pagina
 	pFrame.swapPageFrame(swIndex)
 	
-	#agregar a diccionario
-	#revisar si ya existe en el diccionario
+	print("ver: " + str(swapLocation))
+	
+	#agregar a memoria swap
+	#revisar si proceso del marco de pagina de memoria real ya existe en el memoria swap
 	dictionaryCheck = Sw.get(int(pFrame.nProcess), -1)
+	#si no esta en memoria swap
 	if dictionaryCheck == -1:
+		#agregar a memoria swap
 		list = []
 		list.append(pFrame)
 		Sw[int(pFrame.nProcess)] = list
 	
-	#si el proceso ya existe en el diccionario
+	#si el proceso del marco de pagina de memoria real ya existe en la memoria swap
 	else:
 		Sw[int(pFrame.nProcess)].append(pFrame)
 
 	#almacenar nuevo marco de pagina en memoria real
 	storeData(swapLocation, swapLocation+8, 1, nProcess, False)
 	swapOutCounter += pageFrames
-#	print("swapout: " + str(swapOutCounter))
 	
+	#incrementar indice de memoria swap
+	swIndex += 1
+	
+	#si se llega al limite de la memoria
+	if swIndex >= 2048:
+		#reiniciar indice de memoria swap
+		swIndex = 0
+		
 	
 	return swapLocation
-#END swappingRMtoSw
+	
+#END swappingSwtoRM
 
 
 
 #------------------------------------------------------------------------------------------------
 		
 	
-#Proceso que libera memoria
+	
+#Función: lProcess
+#Función que libera la memoria real y memoria swap de un proceso
+#Parámetros:
+#	-nProcess: proceso al cual pertenece el marco de página
+#Regresa:
+#	NADA
 def lProcess(nProcess):
 	#variables globales
 	global RM
 	global Sw
 	
 	#variables
-	counter = 0
-	start = 0
-	list = []
-	dictionaryCheck = 0
+	counter = 0				#contador para el rango de borrado
+	start = 0					#inicio del rango
+	list = []					#lista temporal para impresion de marcos de pagina eliminados en memoria swap
+	dictionaryCheck = 0		#variable auxiliar para apoyo en busqueda de valores en diccionarios
 	
 	print ("Liberar los marcos de página ocupados por el proceso " + str(nProcess))
 	
-	#buscar marco de pagina libre
+	#buscar marco de pagina ocupados por el proceso
 	for i in range(2048):
+		#encontrar marcos de pagina del proceso
 		if RM[i].nProcess == int(nProcess):
+			#contar rango de marcos de pagina a borrar
 			if counter == 0:
 				start = i
 			counter += 1
 			RM[i] = PageFrame(i)
 			
 		else:
+			#imprimir resultados
 			if counter > 0:
 				print("Se liberan los marcos de página de memoria real: [" + str(start) + ", " + str(start + counter) + "]")
 				counter = 0
 	
+	#encontrar en memoria swap proceso y elminarlo
 	dictionaryCheck = Sw.get(int(nProcess), -1)
 	if not dictionaryCheck == -1:
 		list = Sw[int(nProcess)]
@@ -592,13 +638,26 @@ def lProcess(nProcess):
 			temp.append(dictionaryCheck[i].pageFrameSwap)
 			
 		print("Se liberan los marcos de página de memoria swapping: {" + str(temp) + "}")
+		
+		del Sw[int(nProcess)]
+		
 	return
-	
-	
-	
-	
-	
 
+#END lProcess
+
+
+
+#------------------------------------------------------------------------------------------------
+	
+	
+	
+	
+#Función: finish
+#Función que imprime resultados al momento
+#Parámetros:
+#	NADA
+#Regresa:
+#	NADA
 def finish():
 	global pageFaults
 	global swapInCounter
@@ -666,6 +725,18 @@ def end():
 	print ("MUCHAS GRACIAS")
 	return
 
+#END finish
+
+
+
+#------------------------------------------------------------------------------------------------
+
+#Función: main
+#Función main del programa
+#Parámetros:
+#	NADA
+#Regresa:
+#	NADA
 
 #inicializar memoria real con 2048 espacios
 for i in range(2048):
@@ -681,6 +752,9 @@ for line in txtFile:
 	words = line.split()
 	#imprimir comando
 	print(line)
+	
+	for i in range(2048):
+		print(str(i) + " " + str(RM[i].nProcess) + " " + str(RM[i].pageOrderNum))
 	
 	#iniciar un proceso
 	if words[0] == "P":
@@ -719,3 +793,8 @@ for line in txtFile:
 	print()
 	print()
 	
+#END main
+
+
+
+#------------------------------------------------------------------------------------------------
